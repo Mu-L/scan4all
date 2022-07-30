@@ -79,13 +79,32 @@ func (r *Runner) Httpxrun() error {
 		opts["CustomHeaders"] = a
 		util.CustomHeaders = a
 	}
+	var axx1 []*runner2.Runner
 	go nuclei_Yaml.RunNuclei(&httpxrunner.Naabubuffer, nucleiDone, &opts, xx1)
-	select {
-	case <-xx1:
-		close(xx1)
-	case <-nucleiDone:
-		close(xx1)
-	default:
+XX1009:
+	for {
+		select {
+		case <-util.Ctx_global.Done(): // 全局停止
+			if nil != axx1 && 0 < len(axx1) {
+				for _, i := range axx1 {
+					i.Close()
+				}
+			}
+			break XX1009
+		case x7, ok := <-xx1:
+			if ok && nil != x7 {
+				axx1 = append(axx1, x7)
+			}
+		case <-nucleiDone:
+			if nil != axx1 && 0 < len(axx1) {
+				for _, i := range axx1 {
+					i.Close()
+				}
+			}
+			close(xx1)
+			break XX1009
+		default:
+		}
 	}
 
 	// 指纹去重复 请求路径
@@ -138,13 +157,11 @@ func (r *Runner) Httpxrun() error {
 	httpxoptions = util.ParseOption[httpxrunner.Options]("httpx", httpxoptions)
 	rx, err := httpxrunner.New(httpxoptions)
 	if err != nil {
-		<-nucleiDone
 		return err
 	}
 	rx.RunEnumeration()
 	rx.Close()
 	// wait nuclei
-	<-nucleiDone
 	return nil
 }
 

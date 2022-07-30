@@ -159,13 +159,14 @@ var RandStr4Cookie = util.RandStringRunes(10)
 
 // 重写了fuzz：优化流程、优化算法、修复线程安全bug、增加智能功能
 func FileFuzz(u string, indexStatusCode int, indexContentLength int, indexbody string) ([]string, []string) {
-	if eableFileFuzz {
+	if eableFileFuzz || util.TestRepeat(u, "FileFuzz") {
 		return []string{}, []string{}
 	}
-	u01, err := url.Parse(u)
+	u01, err := url.Parse(strings.TrimSpace(u))
 	if nil == err {
 		u = u01.Scheme + "://" + u01.Host + "/"
 	}
+
 	var (
 		path404               = RandStr // 绝对404页面路径
 		errorTimes   int32    = 0       // 错误计数器，> 20则退出fuzz
@@ -189,6 +190,8 @@ func FileFuzz(u string, indexStatusCode int, indexContentLength int, indexbody s
 		} else {
 			return []string{}, []string{}
 		}
+	} else {
+		return []string{}, []string{}
 	}
 	var wg sync.WaitGroup
 	// 中途控制关闭当前目标所有fuzz
@@ -199,7 +202,7 @@ func FileFuzz(u string, indexStatusCode int, indexContentLength int, indexbody s
 	var async_data = make(chan []string, 64)
 	var async_technologies = make(chan []string, 64)
 	defer func() {
-		util.CloseChan(ch)
+		close(ch)
 		close(async_data)
 		close(async_technologies)
 	}()
@@ -238,10 +241,19 @@ func FileFuzz(u string, indexStatusCode int, indexContentLength int, indexbody s
 			}()
 			for {
 				select {
+				case _, ok := <-ch:
+					if !ok {
+						stop()
+						return
+					}
 				case <-ctx.Done(): // 00-捕获所有线程关闭信号，并退出，close for all
 					atomic.AddInt32(&errorTimes, 21)
 					return
 				default:
+					//if _, ok := noRpt.Load(szKey001Over); ok {
+					//	stop()
+					//	return
+					//}
 					// 01-异常>20关闭所有fuzz
 					if atomic.LoadInt32(&errorTimes) >= 20 {
 						stop() //发停止指令
@@ -318,6 +330,7 @@ func FileFuzz(u string, indexStatusCode int, indexContentLength int, indexbody s
 	// 默认情况等待所有结束
 	wg.Wait()
 	stop() //发停止指令
+	log.Printf("fuzz is over: %s\n", u)
 	return path, technologies
 }
 

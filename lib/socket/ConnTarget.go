@@ -33,7 +33,7 @@ type CheckTarget struct {
 // 准备要检测、链接带目标
 // 需要考虑 ssl的情况
 func NewCheckTarget(szUrl, SzType string, readWriteTimeout int) *CheckTarget {
-	u, err := url.Parse(szUrl)
+	u, err := url.Parse(strings.TrimSpace(szUrl))
 
 	if "" == SzType {
 		SzType = "tcp"
@@ -75,8 +75,8 @@ func (r *CheckTarget) AddCheck(fnCbk CheckCbkFuc, aN ...int) *CheckTarget {
 // send one payload and close
 func (r *CheckTarget) SendOnePayload(str, szPath, szHost string, nTimes int) string {
 	_, err := r.ConnTarget()
+	defer r.Close()
 	if nil == err {
-		defer r.Close()
 		for i := 0; i < nTimes; i++ {
 			r.WriteWithFlush(fmt.Sprintf(str, szPath, szHost, util.GetCustomHeadersRaw()))
 		}
@@ -138,6 +138,7 @@ func (r *CheckTarget) Close() {
 		r.ConnState = false
 		if nil != r.Conn {
 			r.Conn.Close()
+			r.Conn = nil
 		}
 	}
 }
